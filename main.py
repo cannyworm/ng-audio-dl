@@ -45,6 +45,7 @@ def parse_cookies( filePath : str ):
             sections = line.rstrip().split('\t')
 
             if len( sections ) != 7:
+                # dont know what cuase this dont bother enought to fix it
                 if len( sections ) != 1: 
                     print( "Warn: line %d doesn't match cookie format with %d section" % ( index , len(sections )) )
                 continue
@@ -60,7 +61,6 @@ def parse_cookies( filePath : str ):
             jar.set( name , value )
 
     return jar 
-
 
 
 ng_cookies = None
@@ -88,31 +88,39 @@ def page_audio_parse( html : str ):
 
 
     # "url" : "<url>"
-    url_start = embed.text.index( 'rl"' )
-    url_end   = embed.text.index( '"' , url_start + 5 )
+    url_start = embed.text.index( 'url"' )
+    url_end   = embed.text.index( '"' , url_start + 6 )
 
-    url = embed.text[ url_start + 5:url_end ]
+    url = embed.text[ url_start + 6:url_end ]
 
     # replace \/ with /
     url = url.replace("\\/", "/")
 
-    # remove params
-    url = url[:url.index('?')]
-    
+    # check valid url maybe
 
-    return {
-            "title" : soup.title.text,
-            "url"   : url
-            }
+    # remove parameter so we can grab file extension easily
+    # Audio.Name.mp3?fuckyou?=1234
+    # Audio-FuckFUckFuck.mp3?f=1234
+    # check if dot ? is behind dot
+    if url.rfind('?') > url.rfind('.'):
+        url = url[:url.rindex('?')]
+
+    return { "title" : soup.title.text, "url" : url }
 
 def page_audio_download( url : str, path : str ):
     
     audio_page = ng_get( url )
     audio = page_audio_parse( audio_page.text )
 
+    audio_url = audio['url']
+
     filePath = path
-    fileName = audio['title'] + '.mp3'
+    fileName = audio['title'] + audio_url[ audio_url.rfind('.') : ]
     
+    # we ballin
+
+    # if filename exists in filePath we use that insted
+    # and because it's unix ./ArtistName is a valid path with basename becare ful to append / 
     if ( pathFilename := os.path.basename( filePath ) ) != '':
         fileName = pathFilename
         filePath = os.path.dirname( filePath )
@@ -136,7 +144,7 @@ def page_audio_download( url : str, path : str ):
 
         chunk_all   = math.ceil(content_length / chunk_size )
         chunk_index = 0
-        file_size   = 0
+
         for chunk in res.iter_content( chunk_size = chunk_size ):
             print( '[%s] chunk %d/%d ' % (url,chunk_index,chunk_all) )
             output.write( chunk )
@@ -197,10 +205,20 @@ def main():
 
     # hack somehting remove dot from www then check
     # because I don't know to to use virtual env and dont want to install package
-    is_subs_page  = strip_url[:3] != 'www' and '.newgrounds.com' in strip_url
+
+    is_subs_page  = False
+    
+    # remove www.
+    # beccaus www.newgrounds.com is a sub mission page acoord to line 207 logic
+    if strip_url[:3] == 'www':
+        strip_url = strip_url[4:]
+
+    is_subs_page = '.newgrounds.com' in strip_url
+
 
     if is_subs_page:
         if not '/audio' in target_url:
+            # append / at back if not exist
             if target_url[-1] != '/':
                 target_url = target_url + '/'
             target_url = target_url + 'audio'
@@ -227,7 +245,6 @@ def main():
                 output
         )
 
-    print('Result')
     print( result )
     print('OK')
     pass
