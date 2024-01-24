@@ -194,6 +194,9 @@ def main():
         strip_url = strip_url[strip_url.index(':') + 3: ]
 
     is_audio_page = "newgrounds.com" in strip_url and "/audio/listen" in strip_url
+
+    # hack somehting remove dot from www then check
+    # because I don't know to to use virtual env and dont want to install package
     is_subs_page  = strip_url[:3] != 'www' and '.newgrounds.com' in strip_url
 
     if is_subs_page:
