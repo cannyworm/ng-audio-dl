@@ -12,22 +12,20 @@ for i in range(1, len( sys.argv )):
     __args__.append( sys.argv[i] )
 
 def arg_str( key : str , default = None ):
-
     global __args__
 
     for index , arg in enumerate( __args__ ):
-        if arg == key:
+        if arg != key:
+            continue
+        if index == len( __args__ ) - 1:
+            raise Exception("arg %s doesn't have value" % ( key ))
 
-            if index == len( __args__ ) - 1:
-                raise Exception("arg %s doesn't have value" % ( key ))
+        value = __args__[index + 1]
+        del __args__[ index : index + 2 ]
 
-            value = __args__[index + 1]
+        return value
 
-            del __args__[ index : index + 2 ]
-
-            return value
-
-    if not default is None:
+    if not (default is None):
         return default
 
     raise Exception("arg %s doesnt exist" % ( key ))
@@ -50,11 +48,12 @@ def parse_cookies( filePath : str ):
                     print( "Warn: line %d doesn't match cookie format with %d section" % ( index , len(sections )) )
                 continue
             
-            domain = sections[0]
-            include_subdomain = sections[1]
-            path = sections[2]
-            secure = sections[3] == 'TRUE'
-            expires = int(sections[4])
+            # domain = sections[0]
+            # include_subdomain = sections[1]
+            # path = sections[2]
+            # secure = sections[3] == 'TRUE'
+            # expires = int(sections[4])
+
             name = sections[5]
             value = sections[6]
 
@@ -71,9 +70,9 @@ def ng_get( url ):
     res = req.get( url, cookies = ng_cookies )
 
     if res.status_code == 404:
-        raise Exception( "404#Page doesn't exist")
+        raise Exception( "ERROR: 404#Page doesn't exist")
     if res.status_code == 302:
-        raise Exception( "302#Doesn't have permission for this page. (age resitrct with invalid cookies ?)" )
+        raise Exception( "ERROR: 302#Doesn't have permission for this page. (age resitrct with invalid cookies ?)" )
     
     return res
 
@@ -81,11 +80,7 @@ def ng_get( url ):
 def page_audio_parse( html : str ):
     soup = BeautifulSoup( html , 'html.parser')
 
-    def find_embed_script( element ):
-        return element.name == 'script' and 'var embed_controller' in element.text
-
-    embed = soup.find(find_embed_script)
-
+    embed = soup.find(lambda element : element.name == 'script' and 'var embed_controller' in element.text )
 
     # "url" : "<url>"
     url_start = embed.text.index( 'url"' )
@@ -99,6 +94,10 @@ def page_audio_parse( html : str ):
     # check valid url maybe
 
     # remove parameter so we can grab file extension easily
+
+    # I don't think question mark is a valid url ?
+    # It its a valid url
+
     # Audio.Name.mp3?fuckyou?=1234
     # Audio-FuckFUckFuck.mp3?f=1234
     # check if dot ? is behind dot
@@ -142,7 +141,7 @@ def page_audio_download( url : str, path : str ):
         
         chunk_size = 1024
 
-        chunk_all   = math.ceil(content_length / chunk_size )
+        chunk_all   = math.ceil(content_length / chunk_size)
         chunk_index = 0
 
         for chunk in res.iter_content( chunk_size = chunk_size ):
@@ -164,7 +163,9 @@ def page_user_audio_parse( html : str ):
     for sub in submissions:
         href = sub.attrs['href']
         title = sub.attrs['title']
-
+        # can't put dict in list
+        # cuz dict isn't hashable 
+        # I need to relearn internal python struct sometime
         subs[ title ] = href
 
     return subs
@@ -183,8 +184,8 @@ def main():
     global ng_cookies
 
     output  = arg_str( '--output', './')
+    cookiesPath = arg_str( '--cookies', 'cookies.txt' ) 
 
-    cookiesPath = arg_str( '--cookies' ) 
     print( '[main] Load cookies with :' , cookiesPath )
 
     ng_cookies = parse_cookies( cookiesPath)
@@ -198,31 +199,29 @@ def main():
 
     strip_url = target_url
 
+    # remove http/https
+    # can do better with var but it's python
     if '://' in strip_url:
         strip_url = strip_url[strip_url.index(':') + 3: ]
+
+    # remove www.
+    # beccaus www.newgrounds.com is a sub mission page acoord to is_subs_page logic
+    if strip_url[:3] == 'www':
+        strip_url = strip_url[4:]
 
     is_audio_page = "newgrounds.com" in strip_url and "/audio/listen" in strip_url
 
     # hack somehting remove dot from www then check
     # because I don't know to to use virtual env and dont want to install package
-
-    is_subs_page  = False
-    
-    # remove www.
-    # beccaus www.newgrounds.com is a sub mission page acoord to line 207 logic
-    if strip_url[:3] == 'www':
-        strip_url = strip_url[4:]
-
+    # ^ Done
     is_subs_page = '.newgrounds.com' in strip_url
 
-
-    if is_subs_page:
-        if not '/audio' in target_url:
-            # append / at back if not exist
-            if target_url[-1] != '/':
-                target_url = target_url + '/'
-            target_url = target_url + 'audio'
-            print('[main] convert home page to submission url =>' , target_url )
+    if is_subs_page and not '/audio' in target_url:
+        # append / at back if not exist
+        if target_url[-1] != '/':
+            target_url = target_url + '/'
+        target_url = target_url + 'audio'
+        print('[main] home page to submission url =>' , target_url )
 
     if is_subs_page:
         print('[main] user submission mode')
@@ -231,19 +230,12 @@ def main():
     else:
         raise Exception("Invalid URL")
 
-
     result = ''
 
     if is_subs_page:
-        result = page_user_audio_download(
-            target_url,
-            output
-        )
+        result = page_user_audio_download( target_url, output )
     elif is_audio_page:
-        result = page_audio_download(
-                target_url,
-                output
-        )
+        result = page_audio_download( target_url, output )
 
     print( result )
     print('OK')
