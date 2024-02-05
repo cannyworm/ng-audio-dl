@@ -1,5 +1,4 @@
 import sys
-import re
 import requests as req
 import os
 import math
