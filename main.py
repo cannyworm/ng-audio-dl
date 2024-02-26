@@ -143,8 +143,12 @@ def page_audio_download( url : str, path : str ):
         chunk_all   = math.ceil(content_length / chunk_size)
         chunk_index = 0
 
+        progress_bar = Bar( fileName , chunk_all )
+
         for chunk in res.iter_content( chunk_size = chunk_size ):
-            print( '[%s] chunk %d/%d ' % (url,chunk_index,chunk_all) )
+            # print( '[%s] chunk %d/%d ' % (url,chunk_index,chunk_all) )
+            progress_bar.add( 1 )
+            progress_bar.render()
             output.write( chunk )
             chunk_index = chunk_index + 1
     
@@ -178,7 +182,7 @@ def page_user_audio_download( url : str , output : str ):
         page_audio_download( url , output)
 
 
-def main():
+def main_main():
 
     global ng_cookies
 
@@ -240,5 +244,19 @@ def main():
     print('OK')
     pass
 
+from bar import Bar
+
+def ddebug():
+    bar = Bar( "FUCK" , 100 )
+    bar.add( 50 )
+    bar.render()
+    print()
+    print('finish')
+    pass
+
 if __name__ == '__main__':
-    main()
+    if "--debug--" in sys.argv:
+        ddebug()
+    else:
+        main_main()
+
